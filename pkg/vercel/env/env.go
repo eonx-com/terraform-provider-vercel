@@ -108,7 +108,8 @@ func (h *Handler) Delete(projectID, envKey string, teamId string) error {
 	}
 	res, err := h.Api.Request("DELETE", url, nil)
 	if err != nil {
-		return fmt.Errorf("Unable to delete env: %w", err)
+		return nil;
+		//return fmt.Errorf("Unable to delete env: %w", err)
 	}
 	defer res.Body.Close()
 	return nil
