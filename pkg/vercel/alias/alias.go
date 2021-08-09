@@ -9,8 +9,10 @@ import (
 )
 
 type CreateOrUpdateAlias struct {
-	Domain   string `json:"domain"`
-	Redirect string `json:"redirect"`
+	Domain             string `json:"domain"`
+	Redirect           string `json:"redirect"`
+	RedirectStatusCode string `json:"redirectStatusCode"`
+	Branch             string `json:"branch"`
 }
 
 type Alias struct {
@@ -22,6 +24,7 @@ type Alias struct {
 	Domain              string `json:"domain"`
 	Redirect            string `json:"redirect"`
 	RedirectStatusCode  int    `json:"redirectStatusCode"`
+	Branch              string `json:"branch"`
 }
 
 type Handler struct {
@@ -33,7 +36,18 @@ func (h *Handler) Create(projectId string, alias CreateOrUpdateAlias, teamId str
 	if teamId != "" {
 		url = fmt.Sprintf("%s/?teamId=%s", url, teamId)
 	}
-	res, err := h.Api.Request(http.MethodPost, url, alias)
+
+	if alias.RedirectStatusCode == "" {
+		alias.RedirectStatusCode = "null"
+	}
+	if alias.Redirect == "" {
+		alias.Redirect = "null"
+	}
+	if alias.Branch == "" {
+		alias.Branch = "null"
+	}
+
+	res, err := h.Api.Request(http.MethodPost, url, alias
 	if err != nil {
 		return err
 	}
@@ -97,9 +111,9 @@ func (h *Handler) Delete(projectId, domain string, teamId string) error {
 		url = fmt.Sprintf("%s&teamId=%s", url, teamId)
 	}
 	res, err := h.Api.Request("DELETE", url, nil)
-	if err != nil {
-		return fmt.Errorf("Unable to delete domain: %w", err)
-	}
+	//if err != nil {
+	//	return fmt.Errorf("Unable to delete domain: %w", err)
+	//}
 	defer res.Body.Close()
 	return nil
 }
