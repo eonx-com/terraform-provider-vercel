@@ -37,17 +37,12 @@ func (h *Handler) Create(projectId string, alias CreateOrUpdateAlias, teamId str
 		url = fmt.Sprintf("%s/?teamId=%s", url, teamId)
 	}
 
-	if alias.RedirectStatusCode == "" {
-		alias.RedirectStatusCode = "null"
-	}
-	if alias.Redirect == "" {
-		alias.Redirect = "null"
-	}
-	if alias.Branch == "" {
-		alias.Branch = "null"
-	}
-
-	res, err := h.Api.Request(http.MethodPost, url, alias
+	res, err := h.Api.Request(http.MethodPost, url, CreateOrUpdateAlias{
+		Domain:             alias.Domain,
+		Redirect:           alias.Redirect,
+		RedirectStatusCode: alias.RedirectStatusCode,
+		Branch:             alias.Branch,
+	})
 	if err != nil {
 		return err
 	}
@@ -112,7 +107,8 @@ func (h *Handler) Delete(projectId, domain string, teamId string) error {
 	}
 	res, err := h.Api.Request("DELETE", url, nil)
 	if err != nil {
-	//	return fmt.Errorf("Unable to delete domain: %w", err)
+		return nil
+		// return fmt.Errorf("Unable to delete domain: %w", err)
 	}
 	defer res.Body.Close()
 	return nil
