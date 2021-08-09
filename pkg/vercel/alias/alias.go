@@ -111,9 +111,9 @@ func (h *Handler) Delete(projectId, domain string, teamId string) error {
 		url = fmt.Sprintf("%s&teamId=%s", url, teamId)
 	}
 	res, err := h.Api.Request("DELETE", url, nil)
-	//if err != nil {
+	if err != nil {
 	//	return fmt.Errorf("Unable to delete domain: %w", err)
-	//}
+	}
 	defer res.Body.Close()
 	return nil
 }
