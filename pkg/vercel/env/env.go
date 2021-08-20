@@ -23,6 +23,9 @@ type CreateOrUpdateEnv struct {
 
 	// 	The target can be a list of `development`, `preview`, or `production`.
 	Target []string `json:"target"`
+
+	// The Git branch for this variable, only accepted when the target is exclusively preview.
+	GitBranch *string `json:"gitBranch"`
 }
 
 type Env struct {
@@ -31,6 +34,7 @@ type Env struct {
 	Key             string      `json:"key"`
 	Value           string      `json:"value"`
 	Target          []string    `json:"target"`
+	GitBranch       string      `json:"gitBranch"`
 	ConfigurationID interface{} `json:"configurationId"`
 	UpdatedAt       int64       `json:"updatedAt"`
 	CreatedAt       int64       `json:"createdAt"`
@@ -102,15 +106,19 @@ func (h *Handler) Update(projectID string, envID string, env CreateOrUpdateEnv, 
 	return nil
 }
 func (h *Handler) Delete(projectID, envKey string, teamId string) error {
-	url := fmt.Sprintf("/v4/projects/%s/env/%s", projectID, envKey)
+	url := fmt.Sprintf("/v8/projects/%s/env/%s", projectID, envKey)
+
 	if teamId != "" {
 		url = fmt.Sprintf("%s/?teamId=%s", url, teamId)
 	}
+
 	res, err := h.Api.Request("DELETE", url, nil)
+
 	if err != nil {
-		return nil
-		//return fmt.Errorf("Unable to delete env: %w", err)
+		return fmt.Errorf("unable to delete env: %w", err)
 	}
+
 	defer res.Body.Close()
+
 	return nil
 }

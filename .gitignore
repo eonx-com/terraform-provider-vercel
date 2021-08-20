@@ -35,4 +35,7 @@ website/vendor
 .terraform.lock.hcl
 terraform.tfstate*
 vendor/
+
+# vscode
 .vscode/
+__debug_bin
