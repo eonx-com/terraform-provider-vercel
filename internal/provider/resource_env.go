@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel"
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel/env"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -59,6 +60,11 @@ func resourceEnv() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"git_branch": {
+				Description: "The Git branch for this variable, only accepted when the target is exclusively preview.",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
 			"created_at": {
 				Description: "A number containing the date when the variable was created in milliseconds.",
 				Type:        schema.TypeInt,
@@ -74,20 +80,25 @@ func resourceEnv() *schema.Resource {
 }
 
 func toCreateOrUpdateEnv(d *schema.ResourceData) env.CreateOrUpdateEnv {
+	dto := env.CreateOrUpdateEnv{
+		Type:  d.Get("type").(string),
+		Key:   d.Get("key").(string),
+		Value: d.Get("value").(string),
+	}
 
 	// Casting each target because go does not allow typecasting from interface{} to []string
 	targetList := d.Get("target").([]interface{})
-	target := make([]string, len(targetList))
-	for i := 0; i < len(target); i++ {
-		target[i] = targetList[i].(string)
+	dto.Target = make([]string, len(targetList))
+
+	for i := 0; i < len(dto.Target); i++ {
+		dto.Target[i] = targetList[i].(string)
 	}
 
-	return env.CreateOrUpdateEnv{
-		Type:   d.Get("type").(string),
-		Key:    d.Get("key").(string),
-		Value:  d.Get("value").(string),
-		Target: target,
+	if b := d.Get("git_branch").(string); b != "" {
+		dto.GitBranch = &b
 	}
+
+	return dto
 }
 
 func resourceEnvCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -140,6 +151,10 @@ func resourceEnvRead(ctx context.Context, d *schema.ResourceData, meta interface
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	err = d.Set("git_branch", currentVar.GitBranch)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 	err = d.Set("updated_at", currentVar.UpdatedAt)
 	if err != nil {
 		return diag.FromErr(err)
@@ -157,7 +172,7 @@ func resourceEnvUpdate(ctx context.Context, d *schema.ResourceData, meta interfa
 	client := meta.(*vercel.Client)
 
 	// Vercel expects an object with all 4 keys, so there's not point in checking for individual changes.
-	if d.HasChanges("type", "key", "value", "taget") {
+	if d.HasChanges("type", "key", "value", "target", "git_branch") {
 
 		projectID := d.Get("project_id").(string)
 		envID := d.Id()
@@ -168,6 +183,7 @@ func resourceEnvUpdate(ctx context.Context, d *schema.ResourceData, meta interfa
 			return diag.FromErr(err)
 		}
 	}
+
 	return resourceEnvRead(ctx, d, meta)
 }
 
@@ -176,12 +192,14 @@ func resourceEnvDelete(ctx context.Context, d *schema.ResourceData, meta interfa
 	client := meta.(*vercel.Client)
 
 	projectID := d.Get("project_id").(string)
-	envKey := d.Get("key").(string)
+	envID := d.Get("id").(string)
 
-	err := client.Env.Delete(projectID, envKey, d.Get("team_id").(string))
+	err := client.Env.Delete(projectID, envID, d.Get("team_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
 	d.SetId("")
+
 	return diag.Diagnostics{}
 }
