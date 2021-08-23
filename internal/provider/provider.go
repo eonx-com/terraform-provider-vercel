@@ -41,12 +41,13 @@ func New(version string) func() *schema.Provider {
 				"vercel_team": dataSourceTeam(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
-				"vercel_env":     resourceEnv(),
-				"vercel_project": resourceProject(),
-				"vercel_secret":  resourceSecret(),
-				"vercel_domain":  resourceDomain(),
-				"vercel_dns":     resourceDNS(),
-				"vercel_alias":   resourceAlias(),
+				"vercel_env":            resourceEnv(),
+				"vercel_project":        resourceProject(),
+				"vercel_project_domain": resourceProjectDomain(),
+				"vercel_secret":         resourceSecret(),
+				"vercel_domain":         resourceDomain(),
+				"vercel_dns":            resourceDNS(),
+				"vercel_alias":          resourceAlias(),
 			},
 		}
 
