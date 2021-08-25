@@ -25,6 +25,13 @@ func resourceProjectDomain() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 			},
+			"team_id": {
+				Description: "By default, you can access resources contained within your own user account. To access resources owned by a team, you can pass in the team ID",
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+				Default:     "",
+			},
 			"name": {
 				Description: "The name of the project domain.",
 				Type:        schema.TypeString,
@@ -62,7 +69,7 @@ func resourceProjectDomain() *schema.Resource {
 func resourceProjectDomainRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*vercel.Client)
 
-	domain, err := client.ProjectDomain.Read(d.Get("project_id").(string), d.Get("name").(string))
+	domain, err := client.ProjectDomain.Read(d.Get("project_id").(string), d.Get("team_id").(string), d.Get("name").(string))
 
 	if err != nil {
 		return diag.FromErr(err)
@@ -122,7 +129,7 @@ func resourceProjectDomainCreate(ctx context.Context, d *schema.ResourceData, me
 
 	dto := toCreateOrUpdateProjectDomain(d)
 
-	if _, err := client.ProjectDomain.Create(d.Get("project_id").(string), dto); err != nil {
+	if _, err := client.ProjectDomain.Create(d.Get("project_id").(string), d.Get("team_id").(string), dto); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -132,7 +139,7 @@ func resourceProjectDomainCreate(ctx context.Context, d *schema.ResourceData, me
 func resourceProjectDomainDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*vercel.Client)
 
-	if err := client.ProjectDomain.Delete(d.Get("project_id").(string), d.Get("name").(string)); err != nil {
+	if err := client.ProjectDomain.Delete(d.Get("project_id").(string), d.Get("team_id").(string), d.Get("name").(string)); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -147,7 +154,7 @@ func resourceProjectDomainUpdate(ctx context.Context, d *schema.ResourceData, me
 	if d.HasChanges("redirect", "redirect_status_code", "git_branch") {
 		dto := toCreateOrUpdateProjectDomain(d)
 
-		domain, err := client.ProjectDomain.Update(d.Get("project_id").(string), d.Id(), dto)
+		domain, err := client.ProjectDomain.Update(d.Get("project_id").(string), d.Get("team_id").(string), d.Id(), dto)
 
 		if err != nil {
 			return diag.FromErr(err)
