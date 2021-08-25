@@ -29,8 +29,12 @@ type ProjectDomain struct {
 	UpdatedAt          int64  `json:"updatedAt"`
 }
 
-func (h *Handler) Read(projectID, domainName string) (ProjectDomain, error) {
+func (h *Handler) Read(projectID, teamID, domainName string) (ProjectDomain, error) {
 	url := fmt.Sprintf("/v8/projects/%s/domains/%s", projectID, domainName)
+
+	if teamID != "" {
+		url = fmt.Sprintf("%s?teamId=%s", url, teamID)
+	}
 
 	res, err := h.Api.Request("GET", url, nil)
 	if err != nil {
@@ -48,8 +52,12 @@ func (h *Handler) Read(projectID, domainName string) (ProjectDomain, error) {
 	return domain, nil
 }
 
-func (h *Handler) Create(projectID string, dto CreateOrUpdateProjectDomain) (*ProjectDomain, error) {
+func (h *Handler) Create(projectID, teamID string, dto CreateOrUpdateProjectDomain) (*ProjectDomain, error) {
 	url := fmt.Sprintf("/v8/projects/%s/domains", projectID)
+
+	if teamID != "" {
+		url = fmt.Sprintf("%s?teamId=%s", url, teamID)
+	}
 
 	res, err := h.Api.Request(http.MethodPost, url, dto)
 
@@ -69,8 +77,12 @@ func (h *Handler) Create(projectID string, dto CreateOrUpdateProjectDomain) (*Pr
 	return &domain, nil
 }
 
-func (h *Handler) Update(projectID, domainID string, dto CreateOrUpdateProjectDomain) (*ProjectDomain, error) {
+func (h *Handler) Update(projectID, teamID, domainID string, dto CreateOrUpdateProjectDomain) (*ProjectDomain, error) {
 	url := fmt.Sprintf("/v1/projects/%s/domains/%s", projectID, domainID)
+
+	if teamID != "" {
+		url = fmt.Sprintf("%s?teamId=%s", url, teamID)
+	}
 
 	res, err := h.Api.Request(http.MethodPatch, url, dto)
 
@@ -90,8 +102,12 @@ func (h *Handler) Update(projectID, domainID string, dto CreateOrUpdateProjectDo
 	return &domain, nil
 }
 
-func (h *Handler) Delete(projectID, domainName string) error {
+func (h *Handler) Delete(projectID, teamID, domainName string) error {
 	url := fmt.Sprintf("/v8/projects/%s/domains/%s", projectID, domainName)
+
+	if teamID != "" {
+		url = fmt.Sprintf("%s?teamId=%s", url, teamID)
+	}
 
 	res, err := h.Api.Request(http.MethodDelete, url, nil)
 
