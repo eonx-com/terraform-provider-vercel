@@ -62,11 +62,6 @@ func resourceProject() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			"branch": {
-				Description: "The name of the production deployment branch",
-				Type:        schema.TypeString,
-				Required:    true,
-			},
 			"created_at": {
 				Description: "A number containing the date when the project was created in milliseconds.",
 				Type:        schema.TypeInt,
@@ -176,10 +171,6 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, meta int
 	devCommand, devCommandSet := d.GetOk("dev_command")
 	if devCommandSet {
 		project.DevCommand = devCommand.(string)
-	}
-	branch, branchSet := d.GetOk("dev_command")
-	if branchSet {
-		project.Branch = branch.(string)
 	}
 	outputDirectory, outputDirectorySet := d.GetOk("output_directory")
 	if outputDirectorySet {
@@ -319,9 +310,6 @@ func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, meta int
 	}
 	if d.HasChange("root_directory") {
 		update.RootDirectory = d.Get("root_directory").(string)
-	}
-	if d.HasChange("branch") {
-		update.Branch = d.Get("branch").(string)
 	}
 	if d.HasChange("node_version") {
 		update.NodeVersion = d.Get("node_version").(string)

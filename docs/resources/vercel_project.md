@@ -28,7 +28,6 @@ resource "vercel_project" "my_project" {
 
 ### Required
 
-- **branch** (String) The name of the production deployment branch
 - **git_repository** (Block List, Min: 1, Max: 1) The git repository that will be connected to the project. Any pushes to the specified connected git repository will be automatically deployed. (see [below for nested schema](#nestedblock--git_repository))
 - **name** (String) The name of the project.
 
