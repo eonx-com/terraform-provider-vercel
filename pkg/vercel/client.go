@@ -1,9 +1,10 @@
 package vercel
 
 import (
+	"github.com/chronark/terraform-provider-vercel/pkg/vercel/api"
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel/env"
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel/httpApi"
-	pdomain "github.com/chronark/terraform-provider-vercel/pkg/vercel/project_domain"
+	"github.com/chronark/terraform-provider-vercel/pkg/vercel/projectdomain"
 
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel/alias"
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel/dns"
@@ -22,26 +23,27 @@ type Client struct {
 	Team          *team.Handler
 	Alias         *alias.Handler
 	Domain        *domain.Handler
-	ProjectDomain *pdomain.Handler
+	ProjectDomain *projectdomain.Handler
 	DNS           *dns.Handler
 }
 
 func New(token string) *Client {
-	api := httpApi.New(token)
+	apiv1 := httpApi.New(token)
+	apiv2 := api.New(token)
 
 	return &Client{
 		Project: &project.ProjectHandler{
-			Api: api,
+			Api: apiv1,
 		},
 		User: &user.UserHandler{
-			Api: api,
+			Api: apiv1,
 		},
-		Env:           &env.Handler{Api: api},
-		Secret:        &secret.Handler{Api: api},
-		Team:          &team.Handler{Api: api},
-		Alias:         &alias.Handler{Api: api},
-		Domain:        &domain.Handler{Api: api},
-		ProjectDomain: &pdomain.Handler{Api: api},
-		DNS:           &dns.Handler{Api: api},
+		Env:           &env.Handler{Api: apiv2},
+		Secret:        &secret.Handler{Api: apiv1},
+		Team:          &team.Handler{Api: apiv1},
+		Alias:         &alias.Handler{Api: apiv1},
+		Domain:        &domain.Handler{Api: apiv1},
+		ProjectDomain: &projectdomain.Handler{Api: apiv2},
+		DNS:           &dns.Handler{Api: apiv1},
 	}
 }

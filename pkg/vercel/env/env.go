@@ -1,124 +1,96 @@
 package env
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
-	"github.com/chronark/terraform-provider-vercel/pkg/vercel/httpApi"
+	"github.com/chronark/terraform-provider-vercel/pkg/vercel/api"
 )
 
-type CreateOrUpdateEnv struct {
-	// The type can be `plain`, `secret`, or `system`.
-	Type string `json:"type"`
-
-	// The name of the environment variable.
-	Key string `json:"key"`
-
-	// If the type is `plain`, a string representing the value of the environment variable.
-	// If the type is `secret`, the secret ID of the secret attached to the environment variable.
-	// If the type is `system`, the name of the System Environment Variable.
-	Value string `json:"value"`
-
-	// 	The target can be a list of `development`, `preview`, or `production`.
-	Target []string `json:"target"`
-
-	// The Git branch for this variable, only accepted when the target is exclusively preview.
-	GitBranch *string `json:"gitBranch"`
-}
-
-type Env struct {
-	Type            string      `json:"type"`
-	ID              string      `json:"id"`
-	Key             string      `json:"key"`
-	Value           string      `json:"value"`
-	Target          []string    `json:"target"`
-	GitBranch       string      `json:"gitBranch"`
-	ConfigurationID interface{} `json:"configurationId"`
-	UpdatedAt       int64       `json:"updatedAt"`
-	CreatedAt       int64       `json:"createdAt"`
-}
-
 type Handler struct {
-	Api httpApi.API
+	Api *api.Api
 }
 
-func (h *Handler) Create(projectID string, env CreateOrUpdateEnv, teamId string) (string, error) {
+// Create a Project Environment Variable
+// https://vercel.com/docs/api#endpoints/projects/create-a-project-environment-variable
+func (h *Handler) Create(projectID string, payload CreateOrUpdateEnv, teamId string) (*Env, *api.VercelError) {
 	url := fmt.Sprintf("/v6/projects/%s/env", projectID)
+
 	if teamId != "" {
 		url = fmt.Sprintf("%s/?teamId=%s", url, teamId)
 	}
-	res, err := h.Api.Request(http.MethodPost, url, env)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
 
-	var createdEnv Env
-	err = json.NewDecoder(res.Body).Decode(&createdEnv)
-	if err != nil {
-		return "", nil
-	}
-	log.Printf("%+v\n\n", createdEnv)
+	var env Env
 
-	return createdEnv.ID, nil
+	if _, err := h.Api.Request(http.MethodPost, url, payload, &env); err != nil {
+		return nil, err
+	}
+
+	return &env, nil
 }
 
-// Read returns environment variables associated with a project
-func (h *Handler) Read(projectID string, teamId string) (envs []Env, err error) {
+// Get Project Environment Variables
+// https://vercel.com/docs/api#endpoints/projects/get-project-environment-variables
+func (h *Handler) Read(projectID, teamID, envID string) (*Env, *api.VercelError) {
 	url := fmt.Sprintf("/v6/projects/%s/env", projectID)
-	if teamId != "" {
-		url = fmt.Sprintf("%s/?teamId=%s", url, teamId)
-	}
-	res, err := h.Api.Request("GET", url, nil)
-	if err != nil {
-		return []Env{}, fmt.Errorf("Unable to fetch environment variables from vercel: %w", err)
-	}
-	defer res.Body.Close()
 
-	// EnvResponse is only a subset of available data but all we care about
-	// See https://vercel.com/docs/api#endpoints/projects/get-project-environment-variables
-	type EnvResponse struct {
-		Envs []Env `json:"envs"`
+	if teamID != "" {
+		url = fmt.Sprintf("%s/?teamId=%s", url, teamID)
 	}
 
-	var envResponse EnvResponse
+	var envResponse ReadEnvResponse
 
-	err = json.NewDecoder(res.Body).Decode(&envResponse)
-	if err != nil {
-		return []Env{}, fmt.Errorf("Unable to unmarshal environment variables response: %w", err)
+	if _, err := h.Api.Request(http.MethodGet, url, nil, &envResponse); err != nil {
+		return nil, err
 	}
-	log.Printf("%+v\n\n", envResponse)
-	return envResponse.Envs, nil
+
+	var env *Env
+	for _, e := range envResponse.Envs {
+		if e.ID == envID {
+			env = &e
+			break
+		}
+	}
+
+	if env == nil {
+		return nil, &api.VercelError{
+			Code: api.ErrCodeNotFound,
+		}
+	}
+
+	return env, nil
 }
-func (h *Handler) Update(projectID string, envID string, env CreateOrUpdateEnv, teamId string) error {
+
+// Edit a Project Environment Variable
+// https://vercel.com/docs/api#endpoints/projects/edit-a-project-environment-variable
+func (h *Handler) Update(projectID string, envID string, payload CreateOrUpdateEnv, teamId string) (*Env, *api.VercelError) {
 	url := fmt.Sprintf("/v6/projects/%s/env/%s", projectID, envID)
+
 	if teamId != "" {
 		url = fmt.Sprintf("%s/?teamId=%s", url, teamId)
 	}
 
-	res, err := h.Api.Request("PATCH", url, env)
-	if err != nil {
-		return fmt.Errorf("Unable to update env: %w", err)
+	var env Env
+
+	if _, err := h.Api.Request(http.MethodPatch, url, payload, &env); err != nil {
+		return nil, err
 	}
-	defer res.Body.Close()
-	return nil
+
+	return &env, nil
 }
-func (h *Handler) Delete(projectID, envKey string, teamId string) error {
+
+// Delete a Specific Environment Variable
+// https://vercel.com/docs/api#endpoints/projects/delete-a-specific-environment-variable
+func (h *Handler) Delete(projectID, envKey string, teamId string) *api.VercelError {
 	url := fmt.Sprintf("/v8/projects/%s/env/%s", projectID, envKey)
 
 	if teamId != "" {
 		url = fmt.Sprintf("%s/?teamId=%s", url, teamId)
 	}
 
-	res, err := h.Api.Request("DELETE", url, nil)
-
-	if err != nil {
-		return fmt.Errorf("unable to delete env: %w", err)
+	if _, err := h.Api.Request(http.MethodDelete, url, nil, nil); err != nil {
+		return err
 	}
-
-	defer res.Body.Close()
 
 	return nil
 }

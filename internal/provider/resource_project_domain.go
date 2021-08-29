@@ -4,7 +4,8 @@ import (
 	"context"
 
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel"
-	pdomain "github.com/chronark/terraform-provider-vercel/pkg/vercel/project_domain"
+	"github.com/chronark/terraform-provider-vercel/pkg/vercel/api"
+	"github.com/chronark/terraform-provider-vercel/pkg/vercel/projectdomain"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -69,9 +70,18 @@ func resourceProjectDomain() *schema.Resource {
 func resourceProjectDomainRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*vercel.Client)
 
-	domain, err := client.ProjectDomain.Read(d.Get("project_id").(string), d.Get("team_id").(string), d.Get("name").(string))
+	domain, err := client.ProjectDomain.Read(
+		d.Get("project_id").(string),
+		d.Get("team_id").(string),
+		d.Id(),
+	)
 
 	if err != nil {
+		if err.Is(api.ErrCodeNotFound) {
+			d.SetId("")
+			return diag.Diagnostics{}
+		}
+
 		return diag.FromErr(err)
 	}
 
@@ -104,8 +114,8 @@ func resourceProjectDomainRead(ctx context.Context, d *schema.ResourceData, meta
 	return diag.Diagnostics{}
 }
 
-func toCreateOrUpdateProjectDomain(d *schema.ResourceData) pdomain.CreateOrUpdateProjectDomain {
-	dto := pdomain.CreateOrUpdateProjectDomain{
+func toCreateOrUpdateProjectDomain(d *schema.ResourceData) projectdomain.CreateOrUpdateProjectDomain {
+	dto := projectdomain.CreateOrUpdateProjectDomain{
 		Name: d.Get("name").(string),
 	}
 
@@ -129,8 +139,18 @@ func resourceProjectDomainCreate(ctx context.Context, d *schema.ResourceData, me
 
 	dto := toCreateOrUpdateProjectDomain(d)
 
-	if _, err := client.ProjectDomain.Create(d.Get("project_id").(string), d.Get("team_id").(string), dto); err != nil {
+	domain, err := client.ProjectDomain.Create(
+		d.Get("project_id").(string),
+		d.Get("team_id").(string),
+		dto,
+	)
+
+	if err != nil {
 		return diag.FromErr(err)
+	}
+
+	if domain != nil {
+		d.SetId(domain.Name)
 	}
 
 	return resourceProjectDomainRead(ctx, d, meta)
@@ -139,7 +159,11 @@ func resourceProjectDomainCreate(ctx context.Context, d *schema.ResourceData, me
 func resourceProjectDomainDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*vercel.Client)
 
-	if err := client.ProjectDomain.Delete(d.Get("project_id").(string), d.Get("team_id").(string), d.Get("name").(string)); err != nil {
+	if err := client.ProjectDomain.Delete(
+		d.Get("project_id").(string),
+		d.Get("team_id").(string),
+		d.Get("name").(string),
+	); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -154,7 +178,12 @@ func resourceProjectDomainUpdate(ctx context.Context, d *schema.ResourceData, me
 	if d.HasChanges("redirect", "redirect_status_code", "git_branch") {
 		dto := toCreateOrUpdateProjectDomain(d)
 
-		domain, err := client.ProjectDomain.Update(d.Get("project_id").(string), d.Get("team_id").(string), d.Id(), dto)
+		domain, err := client.ProjectDomain.Update(
+			d.Get("project_id").(string),
+			d.Get("team_id").(string),
+			d.Id(),
+			dto,
+		)
 
 		if err != nil {
 			return diag.FromErr(err)
