@@ -21,6 +21,11 @@ type Api struct {
 	token     string
 }
 
+var retrySchedule = []time.Duration{
+	3 * time.Second,
+	6 * time.Second,
+}
+
 func New(token string) *Api {
 	rateLimiter := rate.NewLimiter(rate.Every(time.Minute/75), 1)
 
@@ -56,6 +61,23 @@ func (a *Api) getRequestPayload(body interface{}) (io.Reader, error) {
 	return payload, nil
 }
 
+func (a *Api) do(req *http.Request) (*http.Response, error) {
+	var res *http.Response
+	var err error
+
+	for _, retry := range retrySchedule {
+		res, err = a.httpClient.Do(req)
+
+		if err == nil && res.StatusCode != http.StatusInternalServerError {
+			break
+		}
+
+		time.Sleep(retry)
+	}
+
+	return res, err
+}
+
 func (a *Api) Request(method, path string, body interface{}, result interface{}) (*http.Response, *VercelError) {
 	payload, err := a.getRequestPayload(body)
 
@@ -83,7 +105,7 @@ func (a *Api) Request(method, path string, body interface{}, result interface{})
 
 	a.setHeaders(req)
 
-	res, err := a.httpClient.Do(req)
+	res, err := a.do(req)
 
 	if err != nil {
 		return res, &VercelError{
