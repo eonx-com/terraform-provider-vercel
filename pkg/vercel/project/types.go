@@ -19,36 +19,25 @@ type Project struct {
 		DisabledAt int64  `json:"disabledAt"`
 		CanceledAt int64  `json:"canceledAt"`
 	} `json:"analytics"`
-	AutoExposeSystemEnvs            bool      `json:"autoExposeSystemEnvs"`
-	BuildCommand                    string    `json:"buildCommand"`
-	CreatedAt                       int64     `json:"createdAt"`
-	DevCommand                      string    `json:"devCommand"`
-	DirectoryListing                bool      `json:"directoryListing"`
-	Env                             []env.Env `json:"env"`
-	Framework                       string    `json:"framework"`
-	ID                              string    `json:"id"`
-	InstallCommand                  string    `json:"installCommand"`
-	Name                            string    `json:"name"`
-	NodeVersion                     string    `json:"nodeVersion"`
-	OutputDirectory                 string    `json:"outputDirectory"`
-	PublicSource                    bool      `json:"publicSource"`
-	RootDirectory                   string    `json:"rootDirectory"`
-	ServerlessFunctionRegion        string    `json:"serverlessFunctionRegion"`
-	SourceFilesOutsideRootDirectory bool      `json:"sourceFilesOutsideRootDirectory"`
-	UpdatedAt                       int64     `json:"updatedAt"`
-	Link                            struct {
-		Type             string        `json:"type"`
-		Repo             string        `json:"repo"`
-		RepoID           int           `json:"repoId"`
-		Org              string        `json:"org"`
-		GitCredentialID  string        `json:"gitCredentialId"`
-		CreatedAt        int64         `json:"createdAt"`
-		UpdatedAt        int64         `json:"updatedAt"`
-		Sourceless       bool          `json:"sourceless"`
-		ProductionBranch string        `json:"productionBranch"`
-		DeployHooks      []interface{} `json:"deployHooks"`
-	} `json:"link"`
-	LatestDeployments []struct {
+	AutoExposeSystemEnvs            bool        `json:"autoExposeSystemEnvs"`
+	BuildCommand                    string      `json:"buildCommand"`
+	CreatedAt                       int64       `json:"createdAt"`
+	DevCommand                      string      `json:"devCommand"`
+	DirectoryListing                bool        `json:"directoryListing"`
+	Env                             []env.Env   `json:"env"`
+	Framework                       string      `json:"framework"`
+	ID                              string      `json:"id"`
+	InstallCommand                  string      `json:"installCommand"`
+	Name                            string      `json:"name"`
+	NodeVersion                     string      `json:"nodeVersion"`
+	OutputDirectory                 string      `json:"outputDirectory"`
+	PublicSource                    bool        `json:"publicSource"`
+	RootDirectory                   string      `json:"rootDirectory"`
+	ServerlessFunctionRegion        string      `json:"serverlessFunctionRegion"`
+	SourceFilesOutsideRootDirectory bool        `json:"sourceFilesOutsideRootDirectory"`
+	UpdatedAt                       int64       `json:"updatedAt"`
+	Link                            ProjectLink `json:"link"`
+	LatestDeployments               []struct {
 		Alias         []string      `json:"alias"`
 		AliasAssigned int64         `json:"aliasAssigned"`
 		Builds        []interface{} `json:"builds"`
@@ -140,6 +129,19 @@ type CreateProject struct {
 		Repo string `json:"repo"`
 	} `json:"gitRepository,omitempty"`
 	UpdateProject
+}
+
+type ProjectLink struct {
+	Type             string        `json:"type"`
+	Repo             string        `json:"repo"`
+	RepoID           int           `json:"repoId"`
+	Org              string        `json:"org"`
+	GitCredentialID  string        `json:"gitCredentialId"`
+	CreatedAt        int64         `json:"createdAt"`
+	UpdatedAt        int64         `json:"updatedAt"`
+	Sourceless       bool          `json:"sourceless"`
+	ProductionBranch string        `json:"productionBranch"`
+	DeployHooks      []interface{} `json:"deployHooks"`
 }
 
 // UpdateProject has all the values a user can update without recreating a project

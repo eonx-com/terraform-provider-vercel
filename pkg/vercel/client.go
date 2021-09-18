@@ -33,7 +33,8 @@ func New(token string) *Client {
 
 	return &Client{
 		Project: &project.ProjectHandler{
-			Api: apiv1,
+			Api:   apiv1,
+			Apiv2: apiv2,
 		},
 		User: &user.UserHandler{
 			Api: apiv1,
