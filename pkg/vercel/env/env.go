@@ -3,6 +3,7 @@ package env
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel/api"
 )
@@ -32,15 +33,22 @@ func (h *Handler) Create(projectID string, payload CreateOrUpdateEnv, teamId str
 // Get Project Environment Variables
 // https://vercel.com/docs/api#endpoints/projects/get-project-environment-variables
 func (h *Handler) Read(projectID, teamID, envID string) (*Env, *api.VercelError) {
-	url := fmt.Sprintf("/v6/projects/%s/env", projectID)
+	u, _ := url.Parse(
+		fmt.Sprintf("/v8/projects/%s/env", projectID),
+	)
+
+	q, _ := url.ParseQuery(u.RawQuery)
+	q.Add("decrypt", "true")
 
 	if teamID != "" {
-		url = fmt.Sprintf("%s/?teamId=%s", url, teamID)
+		q.Add("teamId", teamID)
 	}
+
+	u.RawQuery = q.Encode()
 
 	var envResponse ReadEnvResponse
 
-	if _, err := h.Api.Request(http.MethodGet, url, nil, &envResponse); err != nil {
+	if _, err := h.Api.Request(http.MethodGet, u.String(), nil, &envResponse); err != nil {
 		return nil, err
 	}
 
