@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel"
+	"github.com/chronark/terraform-provider-vercel/pkg/vercel/api"
 	"github.com/chronark/terraform-provider-vercel/pkg/vercel/env"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -107,12 +108,13 @@ func resourceEnvCreate(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	payload := toCreateOrUpdateEnv(d)
 
-	envID, err := client.Env.Create(d.Get("project_id").(string), payload, d.Get("team_id").(string))
+	env, err := client.Env.Create(d.Get("project_id").(string), payload, d.Get("team_id").(string))
+
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.SetId(envID)
+	d.SetId(env.ID)
 
 	return resourceEnvRead(ctx, d, meta)
 }
@@ -120,47 +122,43 @@ func resourceEnvCreate(ctx context.Context, d *schema.ResourceData, meta interfa
 func resourceEnvRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*vercel.Client)
 
-	id := d.Id()
-	allEnvVariables, err := client.Env.Read(d.Get("project_id").(string), d.Get("team_id").(string))
-	if err != nil {
-		return diag.FromErr(err)
-	}
+	env, err := client.Env.Read(d.Get("project_id").(string), d.Get("team_id").(string), d.Id())
 
-	// Filter the current variable out of all existing ones
-	var currentVar env.Env
-	for _, envVar := range allEnvVariables {
-		if envVar.ID == id {
-			currentVar = envVar
-			break
+	if err != nil {
+		if err.Is(api.ErrCodeNotFound) {
+			d.SetId("")
+			return diag.Diagnostics{}
 		}
+
+		return diag.FromErr(err)
 	}
 
-	err = d.Set("type", currentVar.Type)
-	if err != nil {
+	if err := d.Set("type", env.Type); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("key", currentVar.Key)
-	if err != nil {
+
+	if err := d.Set("key", env.Key); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("value", currentVar.Value)
-	if err != nil {
+
+	if err := d.Set("value", env.Value); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("target", currentVar.Target)
-	if err != nil {
+
+	if err := d.Set("target", env.Target); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("git_branch", currentVar.GitBranch)
-	if err != nil {
+
+	if err := d.Set("git_branch", env.GitBranch); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("updated_at", currentVar.UpdatedAt)
-	if err != nil {
+
+	if err := d.Set("updated_at", env.UpdatedAt); err != nil {
 		return diag.FromErr(err)
+
 	}
-	err = d.Set("created_at", currentVar.CreatedAt)
-	if err != nil {
+
+	if err := d.Set("created_at", env.CreatedAt); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -168,18 +166,17 @@ func resourceEnvRead(ctx context.Context, d *schema.ResourceData, meta interface
 }
 
 func resourceEnvUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-
 	client := meta.(*vercel.Client)
 
-	// Vercel expects an object with all 4 keys, so there's not point in checking for individual changes.
 	if d.HasChanges("type", "key", "value", "target", "git_branch") {
-
-		projectID := d.Get("project_id").(string)
-		envID := d.Id()
 		payload := toCreateOrUpdateEnv(d)
 
-		err := client.Env.Update(projectID, envID, payload, d.Get("team_id").(string))
-		if err != nil {
+		if _, err := client.Env.Update(
+			d.Get("project_id").(string),
+			d.Id(),
+			payload,
+			d.Get("team_id").(string),
+		); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -188,14 +185,13 @@ func resourceEnvUpdate(ctx context.Context, d *schema.ResourceData, meta interfa
 }
 
 func resourceEnvDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-
 	client := meta.(*vercel.Client)
 
-	projectID := d.Get("project_id").(string)
-	envID := d.Get("id").(string)
-
-	err := client.Env.Delete(projectID, envID, d.Get("team_id").(string))
-	if err != nil {
+	if err := client.Env.Delete(
+		d.Get("project_id").(string),
+		d.Get("id").(string),
+		d.Get("team_id").(string),
+	); err != nil {
 		return diag.FromErr(err)
 	}
 

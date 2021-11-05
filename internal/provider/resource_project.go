@@ -57,6 +57,12 @@ func resourceProject() *schema.Resource {
 					},
 				},
 			},
+			"branch": {
+				Description: "By default, every commit pushed to the main branch will trigger a Production Deployment instead of the usual Preview Deployment.",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
+			},
 			"account_id": {
 				Description: "The unique ID of the user or team the project belongs to.",
 				Type:        schema.TypeString,
@@ -82,7 +88,6 @@ func resourceProject() *schema.Resource {
 				Type:        schema.TypeBool,
 				Optional:    true,
 			},
-
 			"install_command": {
 				Description: "The install command for this project. When null is used this value will be automatically detected.",
 				Type:        schema.TypeString,
@@ -141,7 +146,8 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, meta int
 	// Terraform does not have nested objects with different types yet, so I am using a `TypeList`
 	// Here we have to typecast to list first and then take the first item and cast again.
 	repo := d.Get("git_repository").([]interface{})[0].(map[string]interface{})
-	project := project.CreateProject{
+
+	createProject := project.CreateProject{
 		Name: d.Get("name").(string),
 		GitRepository: struct {
 			Type string `json:"type"`
@@ -152,52 +158,57 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, meta int
 		},
 	}
 
-	framework, frameworkSet := d.GetOk("framework")
-	if frameworkSet {
-		project.Framework = framework.(string)
-	}
-	publicSource, publicSourceSet := d.GetOk("public_source")
-	if publicSourceSet {
-		project.PublicSource = publicSource.(bool)
-	}
-	installCommand, installCommandSet := d.GetOk("install_command")
-	if installCommandSet {
-		project.InstallCommand = installCommand.(string)
-	}
-	buildCommand, buildCommandSet := d.GetOk("build_command")
-	if buildCommandSet {
-		project.BuildCommand = buildCommand.(string)
-	}
-	devCommand, devCommandSet := d.GetOk("dev_command")
-	if devCommandSet {
-		project.DevCommand = devCommand.(string)
-	}
-	outputDirectory, outputDirectorySet := d.GetOk("output_directory")
-	if outputDirectorySet {
-		project.OutputDirectory = outputDirectory.(string)
+	if framework, frameworkSet := d.GetOk("framework"); frameworkSet {
+		createProject.Framework = framework.(string)
 	}
 
-	serverlessFunctionRegion, serverlessFunctionRegionSet := d.GetOk("serverless_function_region")
-	if serverlessFunctionRegionSet {
-		project.ServerlessFunctionRegion = serverlessFunctionRegion.(string)
-	}
-	rootDirectory, rootDirectorySet := d.GetOk("root_directory")
-	if rootDirectorySet {
-		project.RootDirectory = rootDirectory.(string)
-	}
-	nodeVersion, nodeVersionSet := d.GetOk("node_version")
-	if nodeVersionSet {
-		project.NodeVersion = nodeVersion.(string)
-
+	if publicSource, publicSourceSet := d.GetOk("public_source"); publicSourceSet {
+		createProject.PublicSource = publicSource.(bool)
 	}
 
-	id, err := client.Project.Create(project, d.Get("team_id").(string))
+	if installCommand, installCommandSet := d.GetOk("install_command"); installCommandSet {
+		createProject.InstallCommand = installCommand.(string)
+	}
+
+	if buildCommand, buildCommandSet := d.GetOk("build_command"); buildCommandSet {
+		createProject.BuildCommand = buildCommand.(string)
+	}
+
+	if devCommand, devCommandSet := d.GetOk("dev_command"); devCommandSet {
+		createProject.DevCommand = devCommand.(string)
+	}
+
+	if outputDirectory, outputDirectorySet := d.GetOk("output_directory"); outputDirectorySet {
+		createProject.OutputDirectory = outputDirectory.(string)
+	}
+
+	if serverlessFunctionRegion, serverlessFunctionRegionSet := d.GetOk("serverless_function_region"); serverlessFunctionRegionSet {
+		createProject.ServerlessFunctionRegion = serverlessFunctionRegion.(string)
+	}
+
+	if rootDirectory, rootDirectorySet := d.GetOk("root_directory"); rootDirectorySet {
+		createProject.RootDirectory = rootDirectory.(string)
+	}
+
+	if nodeVersion, nodeVersionSet := d.GetOk("node_version"); nodeVersionSet {
+		createProject.NodeVersion = nodeVersion.(string)
+	}
+
+	branch, branchSet := d.GetOk("branch")
+
+	teamID := d.Get("team_id").(string)
+
+	project, err := client.Project.Create(createProject, teamID)
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.SetId(id)
+	d.SetId(project.ID)
+
+	if branchSet && branch != "" && project.Link.ProductionBranch != branch {
+		client.Project.UpdateProductionBranch(project.ID, teamID, branch.(string))
+	}
 
 	return resourceProjectRead(ctx, d, meta)
 }
@@ -212,58 +223,59 @@ func resourceProjectRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.FromErr(err)
 	}
 
-	err = d.Set("name", project.Name)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	err = d.Set("account_id", project.AccountID)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	err = d.Set("created_at", project.CreatedAt)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	err = d.Set("updated_at", project.UpdatedAt)
-	if err != nil {
+	if err = d.Set("name", project.Name); err != nil {
 		return diag.FromErr(err)
 	}
 
-	err = d.Set("framework", project.Framework)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	err = d.Set("public_source", project.PublicSource)
-	if err != nil {
+	if err = d.Set("account_id", project.AccountID); err != nil {
 		return diag.FromErr(err)
 	}
 
-	err = d.Set("install_command", project.InstallCommand)
-	if err != nil {
+	if err = d.Set("branch", project.Link.ProductionBranch); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("build_command", project.BuildCommand)
-	if err != nil {
+
+	if err = d.Set("created_at", project.CreatedAt); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("dev_command", project.DevCommand)
-	if err != nil {
+
+	if err = d.Set("updated_at", project.UpdatedAt); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("output_directory", project.OutputDirectory)
-	if err != nil {
+
+	if err = d.Set("framework", project.Framework); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("serverless_function_region", project.ServerlessFunctionRegion)
-	if err != nil {
+
+	if err = d.Set("public_source", project.PublicSource); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("root_directory", project.RootDirectory)
-	if err != nil {
+
+	if err = d.Set("install_command", project.InstallCommand); err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("node_version", project.NodeVersion)
-	if err != nil {
+
+	if err = d.Set("build_command", project.BuildCommand); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err = d.Set("dev_command", project.DevCommand); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err = d.Set("output_directory", project.OutputDirectory); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err = d.Set("serverless_function_region", project.ServerlessFunctionRegion); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err = d.Set("root_directory", project.RootDirectory); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err = d.Set("node_version", project.NodeVersion); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -271,8 +283,8 @@ func resourceProjectRead(ctx context.Context, d *schema.ResourceData, meta inter
 	for i := 0; i < len(project.Aliases); i++ {
 		aliases = append(aliases, project.Aliases[i].Domain)
 	}
-	err = d.Set("alias", aliases)
-	if err != nil {
+
+	if err = d.Set("alias", aliases); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -287,32 +299,45 @@ func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, meta int
 	if d.HasChange("name") {
 		update.Name = d.Get("name").(string)
 	}
+
 	if d.HasChange("framework") {
 		update.Framework = d.Get("framework").(string)
 	}
+
 	if d.HasChange("public_source") {
 		update.PublicSource = d.Get("public_source").(bool)
 	}
+
 	if d.HasChange("install_command") {
 		update.InstallCommand = d.Get("install_command").(string)
 	}
+
 	if d.HasChange("build_command") {
 		update.BuildCommand = d.Get("build_command").(string)
 	}
+
 	if d.HasChange("dev_command") {
 		update.DevCommand = d.Get("dev_command").(string)
 	}
+
 	if d.HasChange("output_directory") {
 		update.OutputDirectory = d.Get("output_directory").(string)
 	}
+
 	if d.HasChange("serverless_function_region") {
 		update.ServerlessFunctionRegion = d.Get("serverless_function_region").(string)
 	}
+
 	if d.HasChange("root_directory") {
 		update.RootDirectory = d.Get("root_directory").(string)
 	}
+
 	if d.HasChange("node_version") {
 		update.NodeVersion = d.Get("node_version").(string)
+	}
+
+	if d.HasChange("branch") {
+		update.Branch = d.Get("branch").(string)
 	}
 
 	err := client.Project.Update(d.Id(), update, d.Get("team_id").(string))
